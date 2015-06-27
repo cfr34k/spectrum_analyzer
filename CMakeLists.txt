@@ -4,6 +4,9 @@ project (spectrum_analyzer)
 # The current project version
 set(VERSION_NUMBER "0.0.0")
 
+# for YouCompleteMe
+set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
+
 # CFLAGS configuration
 set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -Wno-variadic-macros -pedantic -Wno-long-long -D_POSIX_CXX_SOURCE=20120607L -D_FILE_OFFSET_BITS=64")
 set(CMAKE_CXX_FLAGS_DEBUG "-ggdb -O0 -DDEBUG")
