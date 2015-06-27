@@ -18,7 +18,7 @@ find_library(FFTW_LIBRARY fftw3)
 set(FFTW_LIBRARIES "${FFTW_LIBRARY}")
 
 # SFML
-find_package(SFML COMPONENTS graphics windows system)
+find_package(SFML COMPONENTS graphics window system REQUIRED)
 include_directories("${SFML_INCLUDE_DIR}")
 
 # Version header generation
