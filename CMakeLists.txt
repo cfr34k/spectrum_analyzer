@@ -1,4 +1,6 @@
 cmake_minimum_required (VERSION 2.6)
+#list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
+
 project (spectrum_analyzer)
 
 # The current project version
@@ -15,6 +17,19 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 # Find Sources
 file(GLOB_RECURSE CXX_SRCS src/*.cpp)
 file(GLOB_RECURSE CXX_HDRS src/*.h)
+
+# Gnuradio
+set(GR_REQUIRED_COMPONENTS RUNTIME BLOCKS PMT FFT)
+find_package(Gnuradio 3.7.3 REQUIRED)
+
+include_directories("${GNURADIO_ALL_INCLUDE_DIRS}")
+
+# OsmoSDR
+find_library(OSMOSDR_LIBRARY gnuradio-osmosdr)
+set(OSMOSDR_LIBRARIES "${OSMOSDR_LIBRARY}")
+
+# Boost (required by GnuRadio)
+find_package(Boost COMPONENTS filesystem system)
 
 # FFTW
 find_library(FFTW_LIBRARY fftw3)
@@ -43,3 +58,6 @@ add_executable(${CMAKE_PROJECT_NAME} ${CXX_SRCS})
 # additional libraries
 target_link_libraries(${CMAKE_PROJECT_NAME} ${FFTW_LIBRARIES})
 target_link_libraries(${CMAKE_PROJECT_NAME} ${SFML_LIBRARIES})
+target_link_libraries(${CMAKE_PROJECT_NAME} ${Boost_LIBRARIES})
+target_link_libraries(${CMAKE_PROJECT_NAME} ${OSMOSDR_LIBRARIES})
+target_link_libraries(${CMAKE_PROJECT_NAME} ${GNURADIO_ALL_LIBRARIES})
