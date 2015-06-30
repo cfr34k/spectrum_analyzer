@@ -1,4 +1,4 @@
-#ifndef OSMOSDRSOURCE_H
+#ifndef RECEIVER_H
 #define RECEIVER_H
 
 #include <string>
@@ -12,10 +12,12 @@
 #include <gnuradio/blocks/tags_strobe.h>
 #include <gnuradio/blocks/file_sink.h>
 
+#include "SpectrumAccumulator.h"
+
 class Receiver
 {
 	private:
-		static const size_t NFFT = 1024;
+		size_t m_nfft;
 
 		std::string m_devString;
 
@@ -30,9 +32,10 @@ class Receiver
 		gr::blocks::complex_to_mag::sptr   m_complexToMag;
 		gr::blocks::tags_strobe::sptr      m_tagsStrobe;
 		gr::blocks::file_sink::sptr        m_fileSink;
+		SpectrumAccumulator::sptr          m_spectrumAccumulator;
 
 	public:
-		Receiver(const std::string &device);
+		Receiver(const std::string &device, size_t nfft);
 		~Receiver();
 
 		void setupFlowGraph(void);

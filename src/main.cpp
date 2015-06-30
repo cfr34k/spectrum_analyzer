@@ -2,9 +2,10 @@
 
 #include <SFML/Graphics.hpp>
 
-#include "fft.h"
+#include "Receiver.h"
 #include "version.h"
 
+/*
 void readFFTData(size_t N, FFT::fft_complex *data)
 {
 	for(size_t i = 0; i < N; i++) {
@@ -17,14 +18,13 @@ void readFFTData(size_t N, FFT::fft_complex *data)
 		data[i].imag(val / 128.);
 	}
 }
+*/
 
 int main(void)
 {
-	const size_t FFT_POINTS = (1 << 11);
-	FFT fft(FFT_POINTS);
+	const size_t FFT_POINTS = 1024;
 
-	FFT::fft_complex fftInput[FFT_POINTS];
-	FFT::fft_complex fftOutput[FFT_POINTS];
+	Receiver receiver("hackrf=0", FFT_POINTS);
 
 	sf::RenderWindow window(sf::VideoMode(1024, 768), "OsmoSDR Spectrum Analyzer");
 
@@ -32,6 +32,9 @@ int main(void)
 
 	sf::Color botColor = sf::Color::Red;
 	sf::Color topColor = sf::Color::Green;
+
+	receiver.setupFlowGraph();
+	receiver.start();
 
 	for(size_t i = 0; i < FFT_POINTS; i++) {
 		fftLine[i].position.x = (200 / FFT_POINTS) * i + (200 / FFT_POINTS / 2);
@@ -66,13 +69,11 @@ int main(void)
 			}
 		}
 
-		readFFTData(FFT_POINTS, fftInput);
-		fft.transform(fftInput, fftOutput);
-
 		double h = window.getSize().y;
 		double scale = h / 30;
 		double maxVal = FFT_POINTS;
 
+		/*
 		for(size_t i = 0; i < FFT_POINTS; i++) {
 			double absVal = std::abs(fftOutput[i]);
 
@@ -89,11 +90,14 @@ int main(void)
 			fftLine[i].color.g = botColor.g * alpha + topColor.g * (1 - alpha);
 			fftLine[i].color.b = botColor.b * alpha + topColor.b * (1 - alpha);
 		}
+		*/
 
 		window.clear();
 		window.draw(fftLine);
 		window.display();
 	}
 
-	std::cout << "Hello World!" << std::endl;
+	receiver.stop();
+
+	std::cout << "End of Program." << std::endl;
 }
