@@ -18,6 +18,13 @@ class SpectrumAccumulator : public gr::sync_block
 		SpectrumAccumulator(size_t nfft, double minFreq, double maxFreq, double sampleRate);
 
 	private:
+		struct AverageInfo {
+			double value; // accumulated values
+			size_t count; // number of accumulated values
+		};
+
+		typedef std::vector<AverageInfo> AverageVector;
+
 		size_t m_nfft;
 		double m_minFreq;
 		double m_maxFreq;
@@ -25,6 +32,11 @@ class SpectrumAccumulator : public gr::sync_block
 
 		double m_freqStep;
 		double m_resolutionBandwidth;
+
+		AverageVector m_avgVector;
+		double        m_curFreq;
+
+		pmt::pmt_t    m_newCenterFreqPort;
 
 		void updateFreqStepping(void);
 
@@ -34,6 +46,8 @@ class SpectrumAccumulator : public gr::sync_block
 		void setMinFreq(double minFreq);
 		void setMaxFreq(double maxFreq);
 		void setSampleRate(double sampleRate);
+
+		void resetAccumulation(void);
 
 		int work(int noutput_items,
 		         gr_vector_const_void_star &input_items,

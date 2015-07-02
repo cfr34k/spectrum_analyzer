@@ -3,7 +3,6 @@
 
 #include <string>
 
-#include <osmosdr/source.h>
 #include <gnuradio/top_block.h>
 #include <gnuradio/fft/fft_vcc.h>
 #include <gnuradio/blocks/add_cc.h>
@@ -11,7 +10,9 @@
 #include <gnuradio/blocks/complex_to_mag.h>
 #include <gnuradio/blocks/tags_strobe.h>
 #include <gnuradio/blocks/file_sink.h>
+#include <osmosdr/source.h>
 
+#include "MessageHandler.h"
 #include "SpectrumAccumulator.h"
 
 class Receiver
@@ -21,11 +22,10 @@ class Receiver
 
 		std::string m_devString;
 
-		// top block
-		gr::top_block_sptr     m_topBlock;
-
 		// blocks
-		osmosdr::source::sptr              m_osmosdrSource;
+		gr::top_block_sptr                 m_topBlock;
+
+		osmosdr::source::sptr              m_source;
 		gr::fft::fft_vcc::sptr             m_fft;
 		gr::blocks::stream_to_vector::sptr m_streamToVec;
 		gr::blocks::add_cc::sptr           m_add;
@@ -34,13 +34,16 @@ class Receiver
 		gr::blocks::file_sink::sptr        m_fileSink;
 		SpectrumAccumulator::sptr          m_spectrumAccumulator;
 
+		MessageHandler::sptr               m_messageHandler;
+
 	public:
 		Receiver(const std::string &device, size_t nfft);
 		~Receiver();
 
 		void setupFlowGraph(void);
-		void start(void);
-		void stop(void);
+
+		void start(void) { m_topBlock->start(); };
+		void stop(void) { m_topBlock->stop(); };
 };
 
 #endif // RECEIVER_H
