@@ -20,6 +20,8 @@ class Receiver
 	private:
 		size_t m_nfft;
 
+		double m_sampleRate;
+
 		std::string m_devString;
 
 		// blocks
@@ -44,6 +46,18 @@ class Receiver
 
 		void start(void) { m_topBlock->start(); };
 		void stop(void) { m_topBlock->stop(); };
+
+		void getCurrentResults(SpectrumAccumulator::AmplitudeVector *result);
+
+		bool setSweepFreqRange(double minFreq, double maxFreq);
+
+		double getHardwareMinFreq(void);
+		double getHardwareMaxFreq(void);
+
+		double getSweepMinFreq(void);
+		double getSweepMaxFreq(void);
+
+		void resetData(void);
 };
 
 #endif // RECEIVER_H

@@ -8,7 +8,7 @@
 #include "Receiver.h"
 
 Receiver::Receiver(const std::string &device, size_t nfft)
-	: m_nfft(nfft), m_devString(device)
+	: m_nfft(nfft), m_sampleRate(5e6), m_devString(device)
 {
 }
 
@@ -42,16 +42,16 @@ void Receiver::setupFlowGraph(void)
 
 	m_messageHandler = MessageHandler::make(m_source, m_tagsStrobe);
 
-	m_source->set_bb_gain(20);
-	m_source->set_if_gain(20);
-	m_source->set_sample_rate(10000000);
+	m_source->set_bb_gain(32);
+	m_source->set_if_gain(32);
+	m_source->set_sample_rate(m_sampleRate);
 	m_source->set_center_freq(100000000);
 
 	//m_fileSink = gr::blocks::file_sink::make(sizeof(gr_complex), "test.out", false);
 
 	osmosdr::freq_range_t freq_range = m_source->get_freq_range(0);
 
-	m_spectrumAccumulator = SpectrumAccumulator::make(m_nfft, freq_range.start(), freq_range.stop(), 10000000);
+	m_spectrumAccumulator = SpectrumAccumulator::make(m_nfft, freq_range.start(), freq_range.stop(), m_sampleRate);
 
 	// set up connections
 	m_topBlock->connect(m_source, 0, m_add, 0);
@@ -68,4 +68,54 @@ void Receiver::setupFlowGraph(void)
 
 	m_topBlock->msg_connect(m_spectrumAccumulator, "new_center_freq",
 	                        m_messageHandler, "set_center_freq");
+}
+
+void Receiver::getCurrentResults(SpectrumAccumulator::AmplitudeVector *result)
+{
+	return m_spectrumAccumulator->getCurrentResults(result);
+}
+
+bool Receiver::setSweepFreqRange(double minFreq, double maxFreq)
+{
+	osmosdr::freq_range_t freq_range = m_source->get_freq_range(0);
+
+	if(minFreq < freq_range.start() || maxFreq > freq_range.stop()) {
+		// out of hardware range
+		return false;
+	}
+
+	m_spectrumAccumulator->setMinFreq(minFreq);
+	m_spectrumAccumulator->setMaxFreq(maxFreq);
+	m_spectrumAccumulator->resetAccumulation();
+
+	return true;
+}
+
+double Receiver::getHardwareMinFreq(void)
+{
+	osmosdr::freq_range_t freq_range = m_source->get_freq_range(0);
+
+	return freq_range.start();
+}
+
+double Receiver::getHardwareMaxFreq(void)
+{
+	osmosdr::freq_range_t freq_range = m_source->get_freq_range(0);
+
+	return freq_range.stop();
+}
+
+double Receiver::getSweepMinFreq(void)
+{
+	return m_spectrumAccumulator->getMinFreq();
+}
+
+double Receiver::getSweepMaxFreq(void)
+{
+	return m_spectrumAccumulator->getMaxFreq();
+}
+
+void Receiver::resetData(void)
+{
+	m_spectrumAccumulator->resetAccumulation();
 }

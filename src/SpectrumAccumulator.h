@@ -26,6 +26,7 @@ class SpectrumAccumulator : public gr::sync_block
 		typedef std::vector<AverageInfo> AverageVector;
 
 		size_t m_nfft;
+		size_t m_nAvg;
 		double m_minFreq;
 		double m_maxFreq;
 		double m_sampleRate;
@@ -37,6 +38,8 @@ class SpectrumAccumulator : public gr::sync_block
 		double        m_curFreq;
 
 		pmt::pmt_t    m_newCenterFreqPort;
+
+		gr::thread::mutex m_mutex;
 
 		void updateFreqStepping(void);
 
@@ -53,6 +56,8 @@ class SpectrumAccumulator : public gr::sync_block
 		         gr_vector_const_void_star &input_items,
 		         gr_vector_void_star &output_items);
 
+		void getCurrentResults(AmplitudeVector *result);
+
 		/*
 		 * Hopefully inlined functions
 		 */
@@ -67,6 +72,15 @@ class SpectrumAccumulator : public gr::sync_block
 			return m_resolutionBandwidth;
 		}
 
+		double getMinFreq(void)
+		{
+			return m_minFreq;
+		}
+
+		double getMaxFreq(void)
+		{
+			return m_maxFreq;
+		}
 };
 
 #endif // SPECTRUM_ACCUMULATOR_H

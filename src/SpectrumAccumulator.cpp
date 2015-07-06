@@ -14,8 +14,8 @@ SpectrumAccumulator::SpectrumAccumulator(size_t nfft, double minFreq, double max
 	: gr::sync_block("SpectrumAccumulator",
 	                 gr::io_signature::make(1, 1, nfft * sizeof(float)),
 	                 gr::io_signature::make(0, 0, sizeof(float))),
-	  m_nfft(nfft), m_minFreq(minFreq), m_maxFreq(maxFreq), m_sampleRate(sampleRate),
-		m_curFreq(-1)
+		m_nfft(nfft), m_nAvg(25), m_minFreq(minFreq), m_maxFreq(maxFreq),
+		m_sampleRate(sampleRate), m_curFreq(-1)
 {
 	m_newCenterFreqPort = pmt::mp("new_center_freq");
 	message_port_register_out(m_newCenterFreqPort);
@@ -55,6 +55,8 @@ void SpectrumAccumulator::resetAccumulation(void)
 {
 	AverageInfo empty = {0, 0};
 
+	gr::thread::scoped_lock lock(m_mutex);
+
 	for(AverageVector::size_type i = 0; i < m_avgVector.size(); i++) {
 		m_avgVector[i] = empty;
 	}
@@ -81,20 +83,22 @@ int SpectrumAccumulator::work(int noutput_items,
 		}
 	}
 
-	if(m_curFreq < 0) {
+	if(m_curFreq < m_minFreq || m_curFreq > m_maxFreq) {
+		// current frequency is out of range -> request change to minimum frequency
+		message_port_pub(m_newCenterFreqPort, pmt::from_double(m_minFreq + m_sampleRate/2));
 		return noutput_items;
 	}
 
 	// when averaging is done for this frequency, hop to the next
 	if(averageCounter == 0) {
-		averageCounter = 10;
+		averageCounter = m_nAvg;
 
-		double nextFreq = m_curFreq + m_sampleRate/2;
+		double nextFreq = m_curFreq + m_sampleRate/3;
 
 		// wrap around and reset
 		if(nextFreq > (m_maxFreq - m_sampleRate/2)) {
 			nextFreq = m_minFreq + m_sampleRate/2;
-			resetAccumulation();
+			//resetAccumulation();
 		}
 
 		message_port_pub(m_newCenterFreqPort, pmt::from_double(nextFreq));
@@ -102,12 +106,36 @@ int SpectrumAccumulator::work(int noutput_items,
 
 	AverageVector::size_type startIdx = freqToIndex(m_curFreq - m_sampleRate/2);
 
+	gr::thread::scoped_lock lock(m_mutex);
+
 	for(size_t i = 0; i < m_nfft; i++) {
-		m_avgVector[startIdx + i].value += in[i];
-		m_avgVector[startIdx + i].count++;
+		if(i == m_nfft/2) {
+			// skip the DC
+			continue;
+		} else {
+			m_avgVector[startIdx + i].value += in[i];
+			m_avgVector[startIdx + i].count++;
+		}
 	}
+
+	lock.unlock();
 
 	averageCounter--;
 
 	return noutput_items;
+}
+
+void SpectrumAccumulator::getCurrentResults(SpectrumAccumulator::AmplitudeVector *result)
+{
+	gr::thread::scoped_lock lock(m_mutex);
+
+	result->resize(m_avgVector.size());
+
+	for(AverageVector::size_type i = 0; i < m_avgVector.size(); i++) {
+		if(m_avgVector[i].count != 0) {
+			(*result)[i] = m_avgVector[i].value / m_avgVector[i].count;
+		} else {
+			(*result)[i] = 0;
+		}
+	}
 }
