@@ -14,7 +14,7 @@ SpectrumAccumulator::SpectrumAccumulator(size_t nfft, double minFreq, double max
 	: gr::sync_block("SpectrumAccumulator",
 	                 gr::io_signature::make(1, 1, nfft * sizeof(float)),
 	                 gr::io_signature::make(0, 0, sizeof(float))),
-		m_nfft(nfft), m_nAvg(25), m_minFreq(minFreq), m_maxFreq(maxFreq),
+		m_nfft(nfft), m_nAvg(100), m_minFreq(minFreq), m_maxFreq(maxFreq),
 		m_sampleRate(sampleRate), m_curFreq(-1)
 {
 	m_newCenterFreqPort = pmt::mp("new_center_freq");
@@ -68,7 +68,8 @@ int SpectrumAccumulator::work(int noutput_items,
                               gr_vector_const_void_star &input_items,
                               gr_vector_void_star &output_items)
 {
-	static size_t averageCounter = 0;
+	static size_t averageCounter = 1000000;
+	static size_t delayCountdown = 10;
 
 	const float *in  = reinterpret_cast<const float*>(input_items[0]);
 
@@ -90,8 +91,9 @@ int SpectrumAccumulator::work(int noutput_items,
 	}
 
 	// when averaging is done for this frequency, hop to the next
-	if(averageCounter == 0) {
-		averageCounter = m_nAvg;
+	if(averageCounter >= m_nAvg) {
+		averageCounter = 0;
+		delayCountdown = 0.010 /* seconds */ * m_sampleRate/m_nfft; // countdown to allow settling
 
 		double nextFreq = m_curFreq + m_sampleRate/3;
 
@@ -104,23 +106,27 @@ int SpectrumAccumulator::work(int noutput_items,
 		message_port_pub(m_newCenterFreqPort, pmt::from_double(nextFreq));
 	}
 
-	AverageVector::size_type startIdx = freqToIndex(m_curFreq - m_sampleRate/2);
+	if(delayCountdown == 0) {
+		AverageVector::size_type startIdx = freqToIndex(m_curFreq - m_sampleRate/2);
 
-	gr::thread::scoped_lock lock(m_mutex);
+		std::cout << "Sample windows: " << startIdx << " .. " << (startIdx + m_nfft) << std::endl;
 
-	for(size_t i = 0; i < m_nfft; i++) {
-		if(i == m_nfft/2) {
-			// skip the DC
-			continue;
-		} else {
-			m_avgVector[startIdx + i].value += in[i];
-			m_avgVector[startIdx + i].count++;
+		gr::thread::scoped_lock lock(m_mutex);
+
+		for(size_t i = 0; i < m_nfft; i++) {
+			if(i >= m_nfft/2-2 && i <= m_nfft/2+1) {
+				// skip the DC
+				continue;
+			} else {
+				m_avgVector[startIdx + i].value += in[i];
+				m_avgVector[startIdx + i].count++;
+			}
 		}
+
+		averageCounter++;
+	} else {
+		delayCountdown--;
 	}
-
-	lock.unlock();
-
-	averageCounter--;
 
 	return noutput_items;
 }
@@ -133,7 +139,7 @@ void SpectrumAccumulator::getCurrentResults(SpectrumAccumulator::AmplitudeVector
 
 	for(AverageVector::size_type i = 0; i < m_avgVector.size(); i++) {
 		if(m_avgVector[i].count != 0) {
-			(*result)[i] = m_avgVector[i].value / m_avgVector[i].count;
+			(*result)[i] = m_avgVector[i].value / m_avgVector[i].count / m_nfft;
 		} else {
 			(*result)[i] = 0;
 		}

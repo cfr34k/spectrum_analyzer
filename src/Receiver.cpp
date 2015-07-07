@@ -7,8 +7,8 @@
 
 #include "Receiver.h"
 
-Receiver::Receiver(const std::string &device, size_t nfft)
-	: m_nfft(nfft), m_sampleRate(5e6), m_devString(device)
+Receiver::Receiver(const std::string &device, size_t nfft, double sampleRate)
+	: m_nfft(nfft), m_sampleRate(sampleRate), m_devString(device)
 {
 }
 
@@ -42,7 +42,7 @@ void Receiver::setupFlowGraph(void)
 
 	m_messageHandler = MessageHandler::make(m_source, m_tagsStrobe);
 
-	m_source->set_bb_gain(32);
+	m_source->set_bb_gain(16);
 	m_source->set_if_gain(32);
 	m_source->set_sample_rate(m_sampleRate);
 	m_source->set_center_freq(100000000);

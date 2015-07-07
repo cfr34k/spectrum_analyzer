@@ -29,7 +29,5 @@ void MessageHandler::handle_set_center_freq(pmt::pmt_t msg)
 	double realNewFreq = m_osmosdrSource->set_center_freq(newFreq);
 
 	m_tagsStrobe->set_value(pmt::from_double(realNewFreq));
-
-	std::cout << "Frequency adjustment requested: " << newFreq << " Hz; got " << realNewFreq << " Hz" << std::endl;
 }
 

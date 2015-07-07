@@ -39,7 +39,7 @@ class Receiver
 		MessageHandler::sptr               m_messageHandler;
 
 	public:
-		Receiver(const std::string &device, size_t nfft);
+		Receiver(const std::string &device, size_t nfft, double sampleRate);
 		~Receiver();
 
 		void setupFlowGraph(void);

@@ -27,6 +27,7 @@ int main(void)
 	SpectrumAccumulator::AmplitudeVector spectrum;
 
 	sf::RenderWindow window(sf::VideoMode(1024, 768), "OsmoSDR Spectrum Analyzer");
+	window.setFramerateLimit(30);
 
 	sf::VertexArray fftLine(sf::LinesStrip, npoints);
 	sf::VertexArray cursorLine(sf::Lines, 2);
@@ -42,7 +43,7 @@ int main(void)
 	sf::Color botColor = sf::Color::Red;
 	sf::Color topColor = sf::Color::Green;
 
-	Receiver receiver("hackrf=0", 1024);
+	Receiver receiver("hackrf=0", 4096, 12.5e6);
 
 
 	receiver.setupFlowGraph();
@@ -51,7 +52,7 @@ int main(void)
 	std::cout << "Hardware freq range: [" << receiver.getHardwareMinFreq() << ", " << receiver.getHardwareMaxFreq() << "]\n";
 	std::cout << "Sweep freq range: [" << receiver.getSweepMinFreq() << ", " << receiver.getSweepMaxFreq() << "]\n";
 
-	receiver.setSweepFreqRange(10e6, 1000e6);
+	//receiver.setSweepFreqRange(50e6, 150e6);
 
 	receiver.getCurrentResults(&spectrum);
 	npoints = spectrum.size();
@@ -112,15 +113,14 @@ int main(void)
 		}
 
 		double h = window.getSize().y;
-		double scale = h / 30;
-		double maxVal = 1024;
+		double scale = h / 50;
 
 		receiver.getCurrentResults(&spectrum);
 
 		for(size_t i = 0; i < npoints; i++) {
 			double absVal = spectrum[i];
 
-			double dB = 10 * std::log10(absVal / maxVal);
+			double dB = 10 * std::log10(absVal);
 
 			fftLine[i].position.y = -dB * scale;
 
