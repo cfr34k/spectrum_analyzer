@@ -144,17 +144,21 @@ int SpectrumAccumulator::work(int noutput_items,
 	} else { // display width is smaller than a single window
 		AverageVector::size_type startIdx = -freqToIndex(m_curFreq - m_sampleRate/2);
 
-		gr::thread::scoped_lock lock(m_mutex);
-
-		for(size_t i = 0; (i < m_nfft); i++) {
-			m_avgVector[i].value /= m_avgVector[i].count;
-			m_avgVector[i].count = 1;
+		if(averageCounter == m_nAvg) {
+			gr::thread::scoped_lock lock(m_mutex);
+			for(size_t i = 0; (i < m_nfft); i++) {
+				m_avgVector[i].value /= m_avgVector[i].count;
+				m_avgVector[i].count = 1;
+			}
+		} else {
+			gr::thread::scoped_lock lock(m_mutex);
+			for(size_t i = 0; (i < m_nfft); i++) {
+				m_avgVector[i].value += in[startIdx + i];
+				m_avgVector[i].count++;
+			}
 		}
 
-		for(size_t i = 0; (i < m_nfft); i++) {
-			m_avgVector[i].value += in[startIdx + i];
-			m_avgVector[i].count++;
-		}
+		averageCounter++;
 	}
 
 	if(delayCountdown > 0) {
