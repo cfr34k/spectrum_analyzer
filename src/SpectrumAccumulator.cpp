@@ -109,8 +109,6 @@ int SpectrumAccumulator::work(int noutput_items,
 	if(delayCountdown == 0) {
 		AverageVector::size_type startIdx = freqToIndex(m_curFreq - m_sampleRate/2);
 
-		std::cout << "Sample windows: " << startIdx << " .. " << (startIdx + m_nfft) << std::endl;
-
 		gr::thread::scoped_lock lock(m_mutex);
 
 		for(size_t i = 0; i < m_nfft; i++) {

@@ -6,6 +6,35 @@
 #include "Receiver.h"
 #include "version.h"
 
+void zoomRange(float *lower, float *upper, float limLower, float limUpper, float steadyPos = 0.5, float factor = 1.1, bool in = true)
+{
+	float width = *upper - *lower;
+	float lowerDelta = width * (factor - 1) * steadyPos;
+	float upperDelta = width * (factor - 1) * (1 - steadyPos);
+
+	std::cout << "Edges before: " << *lower << " .. " << *upper << std::endl;
+
+	// move limits
+	if(in) {
+		(*lower) += lowerDelta;
+		(*upper) -= upperDelta;
+	} else {
+		(*lower) -= lowerDelta;
+		(*upper) += upperDelta;
+	}
+
+	// adjust to limits
+	if(*lower < limLower) {
+		*lower = limLower;
+	}
+
+	if(*upper > limUpper) {
+		*upper = limUpper;
+	}
+
+	std::cout << "Edges after:  " << *lower << " .. " << *upper << std::endl;
+}
+
 void resultToScreenData(const SpectrumAccumulator::AmplitudeVector &spectrum,
                         size_t nbins,
                         SpectrumAccumulator::AmplitudeVector *noiseFloor,
@@ -51,18 +80,18 @@ void updateLineFromAmplitudeVector(const SpectrumAccumulator::AmplitudeVector &v
                                    const sf::Vector2u &windowSize,
                                    sf::VertexArray *line)
 {
-	double h = windowSize.y;
-	double scale = h / 50;
+	float h = windowSize.y;
+	float scale = h / 50;
 
 	for(size_t i = 0; i < vector.size(); i++) {
-		double absVal = vector[i];
+		float absVal = vector[i];
 
-		double dB = 10 * std::log10(absVal);
+		float dB = 10 * std::log10(absVal);
 
 		(*line)[i].position.y = -dB * scale;
 
 		/*
-			 double alpha = (*line)[i].position.y / h;
+			 float alpha = (*line)[i].position.y / h;
 
 			 if     (alpha < 0) alpha = 0;
 			 else if(alpha > 1) alpha = 1;
@@ -76,6 +105,13 @@ void updateLineFromAmplitudeVector(const SpectrumAccumulator::AmplitudeVector &v
 
 int main(void)
 {
+	size_t mouseX, mouseY, w, h;
+	size_t nbins;
+	float freq, lowerFreq, upperFreq;
+
+	sf::FloatRect rect;
+	std::ostringstream oss;
+
 	SpectrumAccumulator::AmplitudeVector spectrum, noiseFloor, avgPower, peakPower;
 
 	sf::RenderWindow window(sf::VideoMode(1024, 768), "OsmoSDR Spectrum Analyzer");
@@ -108,64 +144,94 @@ int main(void)
 	std::cout << "Hardware freq range: [" << receiver.getHardwareMinFreq() << ", " << receiver.getHardwareMaxFreq() << "]\n";
 	std::cout << "Sweep freq range: [" << receiver.getSweepMinFreq() << ", " << receiver.getSweepMaxFreq() << "]\n";
 
-	receiver.setSweepFreqRange(2.4e9, 2.5e9);
-
 	while(window.isOpen())
 	{
 		sf::Event event;
 		while(window.pollEvent(event))
 		{
-			if(event.type == sf::Event::Closed) {
-				window.close();
-			} else if(event.type == sf::Event::KeyPressed) {
-				if(event.key.code == sf::Keyboard::Escape) {
+			switch(event.type) {
+				case sf::Event::Closed:
 					window.close();
-				} else if(event.key.code == sf::Keyboard::Space) {
-					receiver.resetData();
-				}
-			} else if(event.type == sf::Event::MouseMoved) {
-				size_t x = event.mouseMove.x;
-				size_t y = event.mouseMove.y;
-				
-				size_t w = window.getSize().x;
-				size_t h = window.getSize().y;
+					break;
 
-				cursorLine[0].position.x = x;
-				cursorLine[1].position.x = x;
+				case sf::Event::KeyPressed:
+					if(event.key.code == sf::Keyboard::Escape) {
+						window.close();
+					} else if(event.key.code == sf::Keyboard::Space) {
+						receiver.resetData();
+					}
+					break;
 
-				double freq = receiver.getSweepMinFreq()
-				              + (receiver.getSweepMaxFreq() - receiver.getSweepMinFreq()) * x / w;
+				case sf::Event::MouseMoved:
+					w = window.getSize().x;
+					mouseX = event.mouseMove.x;
 
-				std::ostringstream oss;
-				oss << "Freq: " << (freq/1e6) << " MHz";
-				infoText.setString(oss.str());
-			} else if(event.type == sf::Event::Resized) {
-				sf::FloatRect rect;
-				rect.left   = 0;
-				rect.top    = 0;
-				rect.width  = window.getSize().x;
-				rect.height = window.getSize().y;
+					cursorLine[0].position.x = mouseX;
+					cursorLine[1].position.x = mouseX;
 
-				window.setView(sf::View(rect));
+					freq = receiver.getSweepMinFreq()
+						+ (receiver.getSweepMaxFreq() - receiver.getSweepMinFreq()) * mouseX / w;
 
-				cursorLine[0].position.y = 0;
-				cursorLine[1].position.y = window.getSize().y;
+					oss.str(""); // clear stream contents
+					oss << "Freq: " << (freq/1e6) << " MHz";
+					infoText.setString(oss.str());
+					break;
 
-				size_t nbins = window.getSize().x;
+				case sf::Event::MouseWheelMoved:
+					w = window.getSize().x;
 
-				noiseFloorLine.resize(nbins);
-				avgPowerLine.resize(nbins);
-				peakPowerLine.resize(nbins);
+					lowerFreq = receiver.getSweepMinFreq();
+					upperFreq = receiver.getSweepMaxFreq();
 
-				for(size_t i = 0; i < nbins; i++) {
-					noiseFloorLine[i].position.x = i;
-					avgPowerLine[i].position.x   = i;
-					peakPowerLine[i].position.x  = i;
+					if(event.mouseWheel.delta > 0) {
+						zoomRange(&lowerFreq, &upperFreq,
+						          receiver.getHardwareMinFreq(), receiver.getHardwareMaxFreq(),
+						          static_cast<float>(mouseX) / w,
+						          1.1, true); // zoom in
+					} else {
+						zoomRange(&lowerFreq, &upperFreq,
+						          receiver.getHardwareMinFreq(), receiver.getHardwareMaxFreq(),
+						          static_cast<float>(mouseX) / w,
+						          1.1, false); // zoom out
+					}
 
-					noiseFloorLine[i].color      = noiseFloorColor;
-					avgPowerLine[i].color        = avgPowerColor;
-					peakPowerLine[i].color       = peakPowerColor;
-				}
+					receiver.setSweepFreqRange(lowerFreq, upperFreq);
+
+					break;
+
+				case sf::Event::Resized:
+					w = window.getSize().x;
+					h = window.getSize().y;
+
+					rect.left   = 0;
+					rect.top    = 0;
+					rect.width  = w;
+					rect.height = h;
+
+					window.setView(sf::View(rect));
+
+					cursorLine[0].position.y = 0;
+					cursorLine[1].position.y = h;
+
+					nbins = window.getSize().x;
+
+					noiseFloorLine.resize(nbins);
+					avgPowerLine.resize(nbins);
+					peakPowerLine.resize(nbins);
+
+					for(size_t i = 0; i < nbins; i++) {
+						noiseFloorLine[i].position.x = i;
+						avgPowerLine[i].position.x   = i;
+						peakPowerLine[i].position.x  = i;
+
+						noiseFloorLine[i].color      = noiseFloorColor;
+						avgPowerLine[i].color        = avgPowerColor;
+						peakPowerLine[i].color       = peakPowerColor;
+					}
+
+				default:
+					/* nothing special */
+					break;
 			}
 		}
 
