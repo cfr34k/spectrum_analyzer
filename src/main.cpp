@@ -128,8 +128,14 @@ int main(void)
 	sf::Font infoFont;
 	infoFont.loadFromFile("/usr/share/fonts/dejavu/DejaVuSans.ttf");
 
-	sf::Text infoText("InfoText", infoFont, 30);
-	infoText.setPosition(10, 10);
+	sf::Text curFreqText("CurrentFrequency", infoFont, 20);
+	sf::Text lowerFreqText("LowerFrequency", infoFont, 20);
+	sf::Text upperFreqText("UpperFrequency", infoFont, 20);
+
+	lowerFreqText.setPosition(10, 10);
+
+	lowerFreqText.setColor(sf::Color(192, 192, 192));
+	upperFreqText.setColor(sf::Color(192, 192, 192));
 
 	sf::Color noiseFloorColor = sf::Color::Blue;
 	sf::Color avgPowerColor   = sf::Color::Green;
@@ -174,8 +180,14 @@ int main(void)
 						+ (receiver.getSweepMaxFreq() - receiver.getSweepMinFreq()) * mouseX / w;
 
 					oss.str(""); // clear stream contents
-					oss << "Freq: " << (freq/1e6) << " MHz";
-					infoText.setString(oss.str());
+					oss << (freq/1e6) << " MHz";
+					curFreqText.setString(oss.str());
+
+					if(mouseX > (w - curFreqText.getLocalBounds().width - 10)) {
+						curFreqText.setPosition(mouseX - 10 - curFreqText.getLocalBounds().width, 40);
+					} else {
+						curFreqText.setPosition(mouseX + 10, 40);
+					}
 					break;
 
 				case sf::Event::MouseWheelMoved:
@@ -197,6 +209,16 @@ int main(void)
 					}
 
 					receiver.setSweepFreqRange(lowerFreq, upperFreq);
+
+					oss.str(""); // clear stream contents
+					oss << (lowerFreq/1e6) << " MHz";
+					lowerFreqText.setString(oss.str());
+
+					oss.str(""); // clear stream contents
+					oss << (upperFreq/1e6) << " MHz";
+					upperFreqText.setString(oss.str());
+
+					upperFreqText.setPosition(w - 10 - upperFreqText.getLocalBounds().width, 10);
 
 					break;
 
@@ -230,6 +252,8 @@ int main(void)
 						peakPowerLine[i].color       = peakPowerColor;
 					}
 
+					upperFreqText.setPosition(w - 10 - upperFreqText.getLocalBounds().width, 10);
+
 				default:
 					/* nothing special */
 					break;
@@ -247,7 +271,9 @@ int main(void)
 		window.draw(noiseFloorLine);
 		window.draw(avgPowerLine);
 		window.draw(peakPowerLine);
-		window.draw(infoText);
+		window.draw(curFreqText);
+		window.draw(lowerFreqText);
+		window.draw(upperFreqText);
 		window.display();
 	}
 
