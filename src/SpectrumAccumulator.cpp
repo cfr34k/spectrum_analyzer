@@ -100,8 +100,8 @@ int SpectrumAccumulator::work(int noutput_items,
 		double nextFreq = m_curFreq + m_sampleRate/3;
 
 		// wrap around and reset
-		if(nextFreq > (m_maxFreq - m_sampleRate/2)) {
-			nextFreq = m_minFreq + m_sampleRate/2;
+		if(nextFreq > m_maxFreq) {
+			nextFreq = m_minFreq;
 
 			for(size_t i = 0; (i < m_nfft) && (i < m_avgVector.size()); i++) {
 				m_avgVector[i].value /= m_avgVector[i].count;
@@ -116,24 +116,24 @@ int SpectrumAccumulator::work(int noutput_items,
 
 	if(freqRange > m_sampleRate) {
 		if(delayCountdown == 1) {
-			AverageVector::size_type startIdx = freqToIndex(m_curFreq - m_sampleRate/2);
+			int startIdx = freqToIndex(m_curFreq - m_sampleRate/2);
 
 			gr::thread::scoped_lock lock(m_mutex);
-
-			for(size_t i = m_nfft * 2 / 3; (i < m_nfft) && (startIdx+i < m_avgVector.size()); i++) {
-				m_avgVector[startIdx + i].value /= m_avgVector[startIdx + i].count;
-				m_avgVector[startIdx + i].count = 1;
+			for(int i = m_nfft * 2 / 3; (i < m_nfft) && (startIdx+i < static_cast<int>(m_avgVector.size())); i++) {
+				if(startIdx + i >= 0) {
+					m_avgVector[startIdx + i].value /= m_avgVector[startIdx + i].count;
+					m_avgVector[startIdx + i].count = 1;
+				}
 			}
 		} else if(delayCountdown == 0) {
-			AverageVector::size_type startIdx = freqToIndex(m_curFreq - m_sampleRate/2);
+			int startIdx = freqToIndex(m_curFreq - m_sampleRate/2);
 
 			gr::thread::scoped_lock lock(m_mutex);
-
-			for(size_t i = 0; (i < m_nfft) && (startIdx+i < m_avgVector.size()); i++) {
+			for(int i = 0; (i < m_nfft) && (startIdx+i < static_cast<int>(m_avgVector.size())); i++) {
 				if(i >= m_nfft/2-2 && i <= m_nfft/2+1) {
 					// skip the DC
 					continue;
-				} else {
+				} else if(startIdx + i >= 0) {
 					m_avgVector[startIdx + i].value += in[i];
 					m_avgVector[startIdx + i].count++;
 				}
