@@ -62,7 +62,7 @@ class SpectrumAccumulator : public gr::sync_block
 		 * Hopefully inlined functions
 		 */
 
-		AmplitudeVector::size_type freqToIndex(double freq)
+		int freqToIndex(double freq)
 		{
 			return (freq - m_minFreq) / m_resolutionBandwidth;
 		}

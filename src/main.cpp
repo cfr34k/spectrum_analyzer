@@ -137,9 +137,10 @@ int main(void)
 
 	Receiver receiver("hackrf=0", 4096, 12.5e6);
 
-
 	receiver.setupFlowGraph();
 	receiver.start();
+
+	receiver.setSweepFreqRange(80e6, 120e6);
 
 	std::cout << "Hardware freq range: [" << receiver.getHardwareMinFreq() << ", " << receiver.getHardwareMaxFreq() << "]\n";
 	std::cout << "Sweep freq range: [" << receiver.getSweepMinFreq() << ", " << receiver.getSweepMaxFreq() << "]\n";

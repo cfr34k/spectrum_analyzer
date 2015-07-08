@@ -53,7 +53,7 @@ void SpectrumAccumulator::setSampleRate(double sampleRate)
 
 void SpectrumAccumulator::resetAccumulation(void)
 {
-	AverageInfo empty = {0, 0};
+	AverageInfo empty = {0, 1};
 
 	gr::thread::scoped_lock lock(m_mutex);
 
@@ -71,6 +71,8 @@ int SpectrumAccumulator::work(int noutput_items,
 	static size_t averageCounter = 1000000;
 	static size_t delayCountdown = 10;
 
+	double freqRange = m_maxFreq - m_minFreq;
+
 	const float *in  = reinterpret_cast<const float*>(input_items[0]);
 
 	std::vector<gr::tag_t> tags;
@@ -86,7 +88,7 @@ int SpectrumAccumulator::work(int noutput_items,
 
 	if(m_curFreq < m_minFreq || m_curFreq > m_maxFreq) {
 		// current frequency is out of range -> request change to minimum frequency
-		message_port_pub(m_newCenterFreqPort, pmt::from_double(m_minFreq + m_sampleRate/2));
+		message_port_pub(m_newCenterFreqPort, pmt::from_double((m_minFreq + m_maxFreq)/2));
 		return noutput_items;
 	}
 
@@ -100,29 +102,62 @@ int SpectrumAccumulator::work(int noutput_items,
 		// wrap around and reset
 		if(nextFreq > (m_maxFreq - m_sampleRate/2)) {
 			nextFreq = m_minFreq + m_sampleRate/2;
+
+			for(size_t i = 0; (i < m_nfft) && (i < m_avgVector.size()); i++) {
+				m_avgVector[i].value /= m_avgVector[i].count;
+				m_avgVector[i].count = 1;
+			}
+
 			//resetAccumulation();
 		}
 
 		message_port_pub(m_newCenterFreqPort, pmt::from_double(nextFreq));
 	}
 
-	if(delayCountdown == 0) {
-		AverageVector::size_type startIdx = freqToIndex(m_curFreq - m_sampleRate/2);
+	if(freqRange > m_sampleRate) {
+		if(delayCountdown == 1) {
+			AverageVector::size_type startIdx = freqToIndex(m_curFreq - m_sampleRate/2);
+
+			gr::thread::scoped_lock lock(m_mutex);
+
+			for(size_t i = m_nfft * 2 / 3; (i < m_nfft) && (startIdx+i < m_avgVector.size()); i++) {
+				m_avgVector[startIdx + i].value /= m_avgVector[startIdx + i].count;
+				m_avgVector[startIdx + i].count = 1;
+			}
+		} else if(delayCountdown == 0) {
+			AverageVector::size_type startIdx = freqToIndex(m_curFreq - m_sampleRate/2);
+
+			gr::thread::scoped_lock lock(m_mutex);
+
+			for(size_t i = 0; (i < m_nfft) && (startIdx+i < m_avgVector.size()); i++) {
+				if(i >= m_nfft/2-2 && i <= m_nfft/2+1) {
+					// skip the DC
+					continue;
+				} else {
+					m_avgVector[startIdx + i].value += in[i];
+					m_avgVector[startIdx + i].count++;
+				}
+			}
+
+			averageCounter++;
+		}
+	} else { // display width is smaller than a single window
+		AverageVector::size_type startIdx = -freqToIndex(m_curFreq - m_sampleRate/2);
 
 		gr::thread::scoped_lock lock(m_mutex);
 
-		for(size_t i = 0; i < m_nfft; i++) {
-			if(i >= m_nfft/2-2 && i <= m_nfft/2+1) {
-				// skip the DC
-				continue;
-			} else {
-				m_avgVector[startIdx + i].value += in[i];
-				m_avgVector[startIdx + i].count++;
-			}
+		for(size_t i = 0; (i < m_nfft); i++) {
+			m_avgVector[i].value /= m_avgVector[i].count;
+			m_avgVector[i].count = 1;
 		}
 
-		averageCounter++;
-	} else {
+		for(size_t i = 0; (i < m_nfft); i++) {
+			m_avgVector[i].value += in[startIdx + i];
+			m_avgVector[i].count++;
+		}
+	}
+
+	if(delayCountdown > 0) {
 		delayCountdown--;
 	}
 
