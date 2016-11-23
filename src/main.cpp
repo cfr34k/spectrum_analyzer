@@ -141,6 +141,9 @@ int main(void)
 	sf::Color avgPowerColor   = sf::Color::Green;
 	sf::Color peakPowerColor  = sf::Color::Red;
 
+	noiseFloorColor.a = 128;
+	peakPowerColor.a  = 128;
+
 	Receiver receiver("hackrf=0", 4096, 12.5e6);
 
 	receiver.setupFlowGraph();
