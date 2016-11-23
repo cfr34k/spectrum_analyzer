@@ -14,7 +14,7 @@ SpectrumAccumulator::SpectrumAccumulator(size_t nfft, double minFreq, double max
 	: gr::sync_block("SpectrumAccumulator",
 	                 gr::io_signature::make(1, 1, nfft * sizeof(float)),
 	                 gr::io_signature::make(0, 0, sizeof(float))),
-		m_nfft(nfft), m_nAvg(100), m_minFreq(minFreq), m_maxFreq(maxFreq),
+		m_nfft(nfft), m_nAvg(10), m_minFreq(minFreq), m_maxFreq(maxFreq),
 		m_sampleRate(sampleRate), m_curFreq(-1)
 {
 	m_newCenterFreqPort = pmt::mp("new_center_freq");
@@ -95,17 +95,17 @@ int SpectrumAccumulator::work(int noutput_items,
 	// when averaging is done for this frequency, hop to the next
 	if(averageCounter >= m_nAvg) {
 		averageCounter = 0;
-		delayCountdown = 0.010 /* seconds */ * m_sampleRate/m_nfft; // countdown to allow settling
+		delayCountdown = 0.001 /* seconds */ * m_sampleRate/m_nfft; // countdown to allow settling
 
-		double nextFreq = m_curFreq + m_sampleRate/3;
+		double nextFreq = m_curFreq + m_sampleRate/5;
 
 		// wrap around and reset
 		if(nextFreq > m_maxFreq) {
 			nextFreq = m_minFreq;
 
-			for(size_t i = 0; (i < m_nfft) && (i < m_avgVector.size()); i++) {
-				m_avgVector[i].value /= m_avgVector[i].count;
-				m_avgVector[i].count = 1;
+			for(size_t i = 0; i < m_avgVector.size(); i++) {
+				m_avgVector[i].value *= 0.9;
+				m_avgVector[i].count = m_avgVector[i].count * 0.9;
 			}
 
 			//resetAccumulation();
@@ -115,17 +115,7 @@ int SpectrumAccumulator::work(int noutput_items,
 	}
 
 	if(freqRange > m_sampleRate) {
-		if(delayCountdown == 1) {
-			int startIdx = freqToIndex(m_curFreq - m_sampleRate/2);
-
-			gr::thread::scoped_lock lock(m_mutex);
-			for(int i = m_nfft * 2 / 3; (i < m_nfft) && (startIdx+i < static_cast<int>(m_avgVector.size())); i++) {
-				if(startIdx + i >= 0) {
-					m_avgVector[startIdx + i].value /= m_avgVector[startIdx + i].count;
-					m_avgVector[startIdx + i].count = 1;
-				}
-			}
-		} else if(delayCountdown == 0) {
+		if(delayCountdown == 0) {
 			int startIdx = freqToIndex(m_curFreq - m_sampleRate/2);
 
 			gr::thread::scoped_lock lock(m_mutex);
